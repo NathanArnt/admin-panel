@@ -36,15 +36,19 @@ model Session {
 
   @@map("sessions")
 }
+enum UserRole {
+  USER
+  ADMIN
+}
 
 model User {
   id            String    @id @default(cuid()) @db.VarChar(191)
   name          String?   @db.VarChar(100) // Limité à 100 caractères
   email         String?   @unique @db.VarChar(191)
   emailVerified DateTime? @map("email_verified")
-  password      String @db.VarChar(100)
+  password      String? @db.VarChar(100)
   image         String?   @db.VarChar(255) // Limité à 255 caractères (standard pour URL)
-  role          String? @db.VarChar(100)
+  role          UserRole? @default(USER) 
   accounts      Account[]
   sessions      Session[]
 

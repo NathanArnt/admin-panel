@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { compare } from 'bcrypt'
 import NextAuth, { type NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-
+import DiscordProvider from "next-auth/providers/discord";
 
 export const authOptions: NextAuthOptions = {
   pages: {
@@ -47,10 +47,14 @@ export const authOptions: NextAuthOptions = {
           id: user.id + '',
           email: user.email,
           name: user.name,
-          randomKey: "Hi handsome !"
+          role: user.role,
         }
       }
-    })
+    }),
+    DiscordProvider({
+      clientId: process.env.DISCORD_CLIENT_ID, // Ajoutez ceci dans votre .env
+      clientSecret: process.env.DISCORD_CLIENT_SECRET, // Ajoutez ceci dans votre .env
+    }),
   ],
   callbacks: {
     session: ({ session, token}) => {
@@ -60,7 +64,7 @@ export const authOptions: NextAuthOptions = {
         user: {
           ...session.user,
           id: token.id,
-          randomKey: token.randomKey
+          role: token.role
         }
       }
     },
@@ -71,10 +75,36 @@ export const authOptions: NextAuthOptions = {
         return {
           ...token,
           id: u.id,
-          randomKey: u.randomKey
+          role: u.role
         }
       } 
       return token
+    },
+    async signIn({ account, profile, credentials }) {
+      // Cas pour DiscordProvider
+      if (account.provider === 'discord' && profile?.email) {
+        const user = await prisma.user.upsert({
+          where: { email: profile.email },
+          create: {
+            email: profile.email,
+            name: profile.username || profile.email.split('@')[0],
+            role: 'USER', // Rôle par défaut
+          },
+          update: {
+            name: profile.username || profile.email.split('@')[0],
+          },
+        });
+    
+        return !!user; // Permet la connexion si l'utilisateur a été traité avec succès
+      }
+    
+      // Cas pour CredentialsProvider
+      if (account.provider === 'credentials') {
+        return true; // Laisser le CredentialsProvider gérer la logique via `authorize`
+      }
+    
+      // Bloque les autres cas par défaut
+      return false;
     }
   }
 }
